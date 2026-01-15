@@ -30,11 +30,9 @@ def extract_video_id(url: str) -> str | None:
     try:
         parsed = urlparse(url)
 
-        # https://www.youtube.com/watch?v=VIDEO_ID
         if "youtube.com" in parsed.netloc:
             return parse_qs(parsed.query).get("v", [None])[0]
 
-        # https://youtu.be/VIDEO_ID
         if "youtu.be" in parsed.netloc:
             return parsed.path.lstrip("/")
 
@@ -106,7 +104,7 @@ with left:
             st.session_state.chat_history = []
 
             st.warning(
-                "YouTube temporarily blocked transcript access for this video. "
+                "Transcript access is temporarily blocked by YouTube. "
                 "Please try again later or use a different video."
             )
 
@@ -129,7 +127,7 @@ with left:
 
 
 # -------------------------------------------------
-# RIGHT PANEL – Chat (FULL PERSISTENT CHAT)
+# RIGHT PANEL – Chat (INPUT ALWAYS AT BOTTOM)
 # -------------------------------------------------
 with right:
     st.subheader("Step 2: Chat with the Video")
@@ -137,29 +135,24 @@ with right:
     if not st.session_state.chain:
         st.info("Build the index first to start chatting.")
     else:
-        # Render full chat history
-        for chat in st.session_state.chat_history:
-            with st.chat_message("user"):
-                st.markdown(chat["question"])
-
-            with st.chat_message("assistant"):
-                st.markdown(chat["answer"])
-
-        # Chat input (fixed at bottom)
+        # Chat input FIRST (Streamlit pins it to bottom)
         question = st.chat_input("Ask something about the video...")
 
         if question:
-            # Show user message instantly
-            with st.chat_message("user"):
-                st.markdown(question)
-
-            # Generate and show assistant response
-            with st.chat_message("assistant"):
-                with st.spinner("Thinking..."):
-                    answer = st.session_state.chain.invoke(question)
-                    st.markdown(answer)
-
-            # Save conversation
+            # Save user message
             st.session_state.chat_history.append(
-                {"question": question, "answer": answer}
+                {"role": "user", "content": question}
             )
+
+            # Generate assistant response
+            with st.spinner("Thinking..."):
+                answer = st.session_state.chain.invoke(question)
+
+            st.session_state.chat_history.append(
+                {"role": "assistant", "content": answer}
+            )
+
+        # Render full chat history AFTER input
+        for chat in st.session_state.chat_history:
+            with st.chat_message(chat["role"]):
+                st.markdown(chat["content"])
