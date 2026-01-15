@@ -46,9 +46,14 @@ groq_client = Groq(api_key=GROQ_API_KEY)
 # -------------------------------------------------
 # Embeddings
 # -------------------------------------------------
+
 embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
+    model_name="sentence-transformers/all-MiniLM-L6-v2",
+    model_kwargs={
+        "token": os.getenv("HF_TOKEN")
+    }
 )
+
 
 
 # -------------------------------------------------
@@ -122,3 +127,4 @@ def build_chain(transcript_text: str):
     )
 
     return chain
+
