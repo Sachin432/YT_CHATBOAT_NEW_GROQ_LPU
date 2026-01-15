@@ -1,8 +1,11 @@
 import streamlit as st
 from urllib.parse import urlparse, parse_qs
 
+from youtube_transcript_api import NoTranscriptFound, TranscriptsDisabled
+
 from transcript_utils import get_clean_transcript
 from rag_pipeline import build_chain
+
 
 # -------------------------------------------------
 # Page config
@@ -13,7 +16,8 @@ st.set_page_config(
 )
 
 st.title("YouTube Video Chatbot (GROQ_MODEL: llama-3.1-8b-instant)")
-st.caption("Ask questions directly from a YouTube video using local AI")
+st.caption("Ask questions directly from a YouTube video using AI")
+
 
 # -------------------------------------------------
 # Helper: Extract video ID
@@ -33,6 +37,7 @@ def extract_video_id(url: str) -> str | None:
 
     return None
 
+
 # -------------------------------------------------
 # Session state init
 # -------------------------------------------------
@@ -42,10 +47,12 @@ if "chain" not in st.session_state:
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+
 # -------------------------------------------------
 # Layout
 # -------------------------------------------------
 left, right = st.columns([1.2, 2])
+
 
 # -------------------------------------------------
 # LEFT PANEL – Video + Index
@@ -71,12 +78,31 @@ with left:
             st.error("Please paste a valid YouTube video link")
             st.stop()
 
-        with st.spinner("Fetching transcript and building index..."):
-            transcript = get_clean_transcript(video_id)
-            st.session_state.chain = build_chain(transcript)
+        try:
+            with st.spinner("Fetching transcript and building index..."):
+                transcript = get_clean_transcript(video_id)
+                st.session_state.chain = build_chain(transcript)
+                st.session_state.chat_history = []
+
+            st.success("Index ready. Start chatting!")
+
+        except (NoTranscriptFound, TranscriptsDisabled):
+            st.session_state.chain = None
             st.session_state.chat_history = []
 
-        st.success("Index ready. Start chatting!")
+            st.error(
+                "This YouTube video does not have an available transcript, "
+                "so I cannot work with it."
+            )
+
+        except Exception:
+            st.session_state.chain = None
+            st.session_state.chat_history = []
+
+            st.error(
+                "An unexpected error occurred while processing the video. "
+                "Please try another video."
+            )
 
     st.divider()
 
@@ -85,6 +111,7 @@ with left:
             st.session_state.chain = None
             st.session_state.chat_history = []
             st.rerun()
+
 
 # -------------------------------------------------
 # RIGHT PANEL – Chat (FULL PERSISTENT CHAT)
@@ -121,4 +148,3 @@ with right:
             st.session_state.chat_history.append(
                 {"question": question, "answer": answer}
             )
-
