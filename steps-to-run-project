@@ -1,0 +1,5 @@
+cd D:\Project\YT_VIDEO_CHATBOAT
+.\.venv\Scripts\Activate.ps1
+ollama list
+python test_ollama.py
+streamlit run app.py
