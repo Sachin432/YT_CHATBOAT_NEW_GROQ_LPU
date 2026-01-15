@@ -1,7 +1,11 @@
 import streamlit as st
 from urllib.parse import urlparse, parse_qs
 
-from youtube_transcript_api import NoTranscriptFound, TranscriptsDisabled
+from youtube_transcript_api import (
+    NoTranscriptFound,
+    TranscriptsDisabled,
+    RequestBlocked
+)
 
 from transcript_utils import get_clean_transcript
 from rag_pipeline import build_chain
@@ -26,9 +30,11 @@ def extract_video_id(url: str) -> str | None:
     try:
         parsed = urlparse(url)
 
+        # https://www.youtube.com/watch?v=VIDEO_ID
         if "youtube.com" in parsed.netloc:
             return parse_qs(parsed.query).get("v", [None])[0]
 
+        # https://youtu.be/VIDEO_ID
         if "youtu.be" in parsed.netloc:
             return parsed.path.lstrip("/")
 
@@ -95,13 +101,22 @@ with left:
                 "so I cannot work with it."
             )
 
+        except RequestBlocked:
+            st.session_state.chain = None
+            st.session_state.chat_history = []
+
+            st.warning(
+                "YouTube temporarily blocked transcript access for this video. "
+                "Please try again later or use a different video."
+            )
+
         except Exception:
             st.session_state.chain = None
             st.session_state.chat_history = []
 
             st.error(
                 "An unexpected error occurred while processing the video. "
-                "Please try another video."
+                "Please try again later."
             )
 
     st.divider()
