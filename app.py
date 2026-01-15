@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("YouTube Video Chatbot (Local Gemma)")
+st.title("YouTube Video Chatbot (GROQ_MODEL: llama-3.1-8b-instant)")
 st.caption("Ask questions directly from a YouTube video using local AI")
 
 # -------------------------------------------------
@@ -121,3 +121,4 @@ with right:
             st.session_state.chat_history.append(
                 {"question": question, "answer": answer}
             )
+
