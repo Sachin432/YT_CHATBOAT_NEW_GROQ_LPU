@@ -16,11 +16,12 @@ from rag_pipeline import build_chain
 # -------------------------------------------------
 st.set_page_config(
     page_title="YouTube RAG Chatbot",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-st.title("YouTube Video Chatbot (GROQ_MODEL: llama-3.1-8b-instant)")
-st.caption("Ask questions directly from a YouTube video using AI")
+st.title("YouTube Video Chatbot")
+st.caption("Ask questions directly from a YouTube video using AI (Groq LPU)")
 
 
 # -------------------------------------------------
@@ -45,114 +46,132 @@ def extract_video_id(url: str) -> str | None:
 # -------------------------------------------------
 # Session state init
 # -------------------------------------------------
-if "chain" not in st.session_state:
-    st.session_state.chain = None
-
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+st.session_state.setdefault("chain", None)
+st.session_state.setdefault("chat_history", [])
+st.session_state.setdefault("video_id", None)
+st.session_state.setdefault("index_ready", False)
 
 
 # -------------------------------------------------
 # Layout
 # -------------------------------------------------
-left, right = st.columns([1.2, 2])
+left, right = st.columns([1.1, 2])
 
 
 # -------------------------------------------------
-# LEFT PANEL – Video + Index
+# LEFT PANEL – Video & Indexing
 # -------------------------------------------------
 with left:
-    st.subheader("Step 1: Paste YouTube Link")
+    st.subheader("Step 1 · Video Input")
 
     video_url = st.text_input(
-        "YouTube video URL",
+        "Paste YouTube video link",
         placeholder="https://www.youtube.com/watch?v=..."
     )
 
     video_id = extract_video_id(video_url) if video_url else None
 
     if video_id:
+        st.session_state.video_id = video_id
         st.image(
             f"https://img.youtube.com/vi/{video_id}/0.jpg",
             use_container_width=True
         )
 
-    if st.button("Build Knowledge Index", use_container_width=True):
-        if not video_id:
-            st.error("Please paste a valid YouTube video link")
-            st.stop()
+    build_btn = st.button(
+        "Build Knowledge Index",
+        use_container_width=True,
+        disabled=not video_id
+    )
 
+    if build_btn:
         try:
-            with st.spinner("Fetching transcript and building index..."):
+            st.session_state.index_ready = False
+            st.session_state.chat_history = []
+
+            with st.spinner("Fetching transcript and building semantic index..."):
                 transcript = get_clean_transcript(video_id)
                 st.session_state.chain = build_chain(transcript)
-                st.session_state.chat_history = []
 
-            st.success("Index ready. Start chatting!")
+            st.session_state.index_ready = True
+            st.success("Index ready. You can now chat with the video.")
 
         except (NoTranscriptFound, TranscriptsDisabled):
             st.session_state.chain = None
-            st.session_state.chat_history = []
+            st.session_state.index_ready = False
 
             st.error(
-                "This YouTube video does not have an available transcript, "
-                "so I cannot work with it."
+                "This video does not have an available transcript. "
+                "Please try a different video."
             )
 
         except RequestBlocked:
             st.session_state.chain = None
-            st.session_state.chat_history = []
+            st.session_state.index_ready = False
 
             st.warning(
-                "Transcript access is temporarily blocked by YouTube. "
-                "Please try again later or use a different video."
+                "YouTube temporarily blocked transcript access for this video. "
+                "Please try again later."
             )
 
         except Exception:
             st.session_state.chain = None
-            st.session_state.chat_history = []
+            st.session_state.index_ready = False
 
             st.error(
-                "An unexpected error occurred while processing the video. "
+                "Something went wrong while processing the video. "
                 "Please try again later."
             )
 
     st.divider()
 
+    if st.session_state.index_ready:
+        st.success("Status: Ready to Chat")
+
     if st.session_state.chain:
         if st.button("Reset & Load New Video", use_container_width=True):
             st.session_state.chain = None
             st.session_state.chat_history = []
+            st.session_state.index_ready = False
+            st.session_state.video_id = None
             st.rerun()
 
 
 # -------------------------------------------------
-# RIGHT PANEL – Chat (INPUT ALWAYS AT BOTTOM)
+# RIGHT PANEL – Chat Interface
 # -------------------------------------------------
 with right:
-    st.subheader("Step 2: Chat with the Video")
+    st.subheader("Step 2 · Chat with the Video")
 
-    if not st.session_state.chain:
-        st.info("Build the index first to start chatting.")
+    if not st.session_state.index_ready:
+        st.info(
+            "Paste a YouTube link and build the knowledge index "
+            "to start asking questions."
+        )
     else:
-        # Chat input FIRST (Streamlit pins it to bottom)
-        question = st.chat_input("Ask something about the video...")
+        # Display chat history
+        for chat in st.session_state.chat_history:
+            with st.chat_message("user"):
+                st.markdown(chat["question"])
+
+            with st.chat_message("assistant"):
+                st.markdown(chat["answer"])
+
+        # Chat input
+        question = st.chat_input(
+            "Ask a question about the video…",
+            disabled=not st.session_state.index_ready
+        )
 
         if question:
-            # Save user message
+            with st.chat_message("user"):
+                st.markdown(question)
+
+            with st.chat_message("assistant"):
+                with st.spinner("Analyzing video content..."):
+                    answer = st.session_state.chain.invoke(question)
+                    st.markdown(answer)
+
             st.session_state.chat_history.append(
-                {"role": "user", "content": question}
+                {"question": question, "answer": answer}
             )
-
-            # Generate assistant response
-            with st.spinner("Thinking..."):
-                answer = st.session_state.chain.invoke(question)
-
-            st.session_state.chat_history.append(
-                {"role": "assistant", "content": answer}
-            )
-
-        # Render full chat history AFTER input
-        for chat in st.session_state.chat_history:
-            with st.chat_message(chat["role"]):
-                st.markdown(chat["content"])
