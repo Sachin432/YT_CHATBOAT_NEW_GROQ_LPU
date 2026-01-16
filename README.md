@@ -1,7 +1,7 @@
 # YouTube Video Chatbot using RAG (Groq LPU)
 
 🔗 **Live Application:**  
-https://ytchatboatnewgroqlpu-9jttuhhs2x6s6h9f9mwufz.streamlit.app/
+https://ytchatboatnewgroqlpu-aphmzmg6jmdb5bmkeozxrf.streamlit.app/
 
 ---
 
@@ -106,3 +106,4 @@ This makes the RAG pipeline debuggable, transparent, and production-ready.
 ├── test_groq.py            # Groq LLM connectivity test
 ├── requirements.txt
 └── README.md
+
