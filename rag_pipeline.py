@@ -1,7 +1,8 @@
 """
 rag_pipeline.py
 
-RAG pipeline using Groq LPU-based LLMs for fast, cloud inference.
+RAG pipeline using Groq LPU-based LLMs
+with conversational memory support.
 """
 
 import os
@@ -46,7 +47,6 @@ groq_client = Groq(api_key=GROQ_API_KEY)
 # -------------------------------------------------
 # Embeddings
 # -------------------------------------------------
-
 embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2",
     model_kwargs={
@@ -55,23 +55,26 @@ embeddings = HuggingFaceEmbeddings(
 )
 
 
-
 # -------------------------------------------------
-# Prompt Template
+# Prompt Template (WITH MEMORY)
 # -------------------------------------------------
 PROMPT = PromptTemplate(
     template="""
 You are a helpful assistant.
-Answer ONLY using the provided transcript context.
-If the context is insufficient, say "I don't know".
+Use the conversation history and transcript context to answer the question.
+Answer ONLY using the transcript context.
+If the answer is not present, say "I don't know".
 
-Context:
+Conversation History:
+{history}
+
+Transcript Context:
 {context}
 
-Question:
+Current Question:
 {question}
 """,
-    input_variables=["context", "question"],
+    input_variables=["history", "context", "question"],
 )
 
 
@@ -79,9 +82,6 @@ Question:
 # Groq LLM Call
 # -------------------------------------------------
 def call_groq(prompt: str) -> str:
-    """
-    Sends a prompt to Groq's LPU-based LLM and returns the response.
-    """
     response = groq_client.chat.completions.create(
         model=GROQ_MODEL,
         messages=[
@@ -89,21 +89,38 @@ def call_groq(prompt: str) -> str:
         ],
         temperature=0.2
     )
-
     return response.choices[0].message.content.strip()
 
 
 # -------------------------------------------------
-# Helper
+# Helpers
 # -------------------------------------------------
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
 
+def format_chat_history(chat_history, max_turns: int = 4) -> str:
+    """
+    Formats recent chat history into a prompt-friendly string.
+    Uses last N turns only to keep context bounded.
+    """
+    if not chat_history:
+        return "None"
+
+    recent_history = chat_history[-max_turns:]
+    history_text = ""
+
+    for turn in recent_history:
+        history_text += f"User: {turn['question']}\n"
+        history_text += f"Assistant: {turn['answer']}\n"
+
+    return history_text.strip()
+
+
 # -------------------------------------------------
-# Build RAG Chain
+# Build RAG Chain (WITH MEMORY)
 # -------------------------------------------------
-def build_chain(transcript_text: str):
+def build_chain(transcript_text: str, chat_history: list):
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=200
@@ -119,6 +136,9 @@ def build_chain(transcript_text: str):
             {
                 "context": retriever | RunnableLambda(format_docs),
                 "question": RunnablePassthrough(),
+                "history": RunnableLambda(
+                    lambda _: format_chat_history(chat_history)
+                ),
             }
         )
         | PROMPT
@@ -127,4 +147,3 @@ def build_chain(transcript_text: str):
     )
 
     return chain
-
