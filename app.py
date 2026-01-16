@@ -21,7 +21,10 @@ st.set_page_config(
 )
 
 st.title("YouTube Video Chatbot")
-st.caption("Ask questions directly from a YouTube video using AI (GROQ_MODEL: llama-3.1-8b-instant)")
+st.caption(
+    "Ask questions directly from a YouTube video using AI "
+    "(GROQ_MODEL: llama-3.1-8b-instant)"
+)
 
 
 # -------------------------------------------------
@@ -75,12 +78,12 @@ with left:
         st.session_state.video_id = video_id
         st.image(
             f"https://img.youtube.com/vi/{video_id}/0.jpg",
-            use_container_width=True
+            width="stretch"
         )
 
     build_btn = st.button(
         "Build Knowledge Index",
-        use_container_width=True,
+        width="stretch",
         disabled=not video_id
     )
 
@@ -119,8 +122,8 @@ with left:
             st.session_state.index_ready = False
 
             st.error(
-                "Something went wrong while processing the video. "
-                "Please try again later."
+                "We couldn’t process this video right now. "
+                "Please try again later or use a different video."
             )
 
     st.divider()
@@ -129,7 +132,7 @@ with left:
         st.success("Status: Ready to Chat")
 
     if st.session_state.chain:
-        if st.button("Reset & Load New Video", use_container_width=True):
+        if st.button("Reset & Load New Video", width="stretch"):
             st.session_state.chain = None
             st.session_state.chat_history = []
             st.session_state.index_ready = False
@@ -175,4 +178,3 @@ with right:
             st.session_state.chat_history.append(
                 {"question": question, "answer": answer}
             )
-
