@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 st.title("YouTube Video Chatbot")
-st.caption("Ask questions directly from a YouTube video using AI (Groq LPU)")
+st.caption("Ask questions directly from a YouTube video using AI (GROQ_MODEL: llama-3.1-8b-instant)")
 
 
 # -------------------------------------------------
@@ -175,3 +175,4 @@ with right:
             st.session_state.chat_history.append(
                 {"question": question, "answer": answer}
             )
+
